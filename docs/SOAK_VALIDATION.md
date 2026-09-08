@@ -32,7 +32,10 @@ requires the sender's three-second timeout, then cuts its connection for two
 seconds. Bob and Carol keep communicating while Alice reconnects. At two-thirds,
 node 1 is killed and restarted using its original data directory. Traffic pauses
 for elected Slot leader convergence, then surviving peers must communicate
-before the node restarts. Alice must reconnect to the same node and resume
+within ten seconds before the node restarts. Numeric `NodeNotMatch` (18)
+rejections during this recovery window are counted separately (at most 32);
+each subsequent probe has a new message identity. Rejected identities must
+have zero observed deliveries. All other errors fail the test. Alice must reconnect to the same node and resume
 bidirectional traffic. One ambiguous SEND is reconciled as delivered; it must
 not be replayed. A fixed 100,000-entry bitmap per peer detects duplicates while
 payload retention stays bounded to 128 unreconciled messages.

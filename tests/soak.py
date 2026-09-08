@@ -11,6 +11,7 @@ import statistics
 import subprocess
 import tempfile
 import time
+from collections import Counter
 
 import cluster as base
 
@@ -93,6 +94,8 @@ class Ledger:
     def __init__(self):
         self.attempts = self.acked = self.queue_full = self.ambiguous = 0
         self.latencies = []
+        self.pairs = Counter()
+        self.route_rejections = []
 
     def new(self):
         self.attempts += 1
@@ -109,11 +112,16 @@ class Ledger:
         assert (ack['messageId'], ack['messageSeq']) == (value['messageId'], value['messageSeq'])
         receiver.messages.pop(message['payload']['counter'])
         self.acked += 1
+        self.pairs[(sender.uid, receiver.uid)] += 1
         self.latencies.append(latency)
 
-    async def exchange(self, sender, receiver):
+    async def exchange(self, sender, receiver, allow_route_rejection=False):
         message, started = self.new(), time.monotonic()
         result = await sender.call('send', uid=receiver.uid, **message)
+        if not result['ok'] and allow_route_rejection and result.get('code') == 18:
+            assert len(self.route_rejections) < 32, 'Route recovery rejection budget exceeded'
+            self.route_rejections.append((receiver, message['payload']['counter']))
+            return
         await self.reconcile(sender, receiver, message, result, (time.monotonic() - started) * 1000)
 
     async def burst(self, sender, receiver, count, queue_full=0):
@@ -206,10 +214,12 @@ async def scenario(args, root, client, report):
             await asyncio.wait_for(cluster.processes[0].wait(), 5)
             await base.eventually(lambda: not alice.connected, 10)
             await cluster.stable([1, 2])
+            directions = [(bob.uid, carol.uid), (carol.uid, bob.uid)]
+            before = [ledger.pairs[pair] for pair in directions]
             traffic_ready.set()
-            before = ledger.acked
-            await asyncio.sleep(3)
-            assert ledger.acked >= before + 2, 'Surviving-node traffic did not progress'
+            await base.eventually(lambda: all(ledger.pairs[pair] > count
+                for pair, count in zip(directions, before)), 10)
+            await asyncio.sleep(1)
             await cluster.spawn(0)
             await cluster.ready(0)
             await cluster.stable([0, 1, 2])
@@ -283,8 +293,8 @@ async def scenario(args, root, client, report):
                 if fault_task.done():
                     fault_task.result()
             if fault_task:
-                await ledger.exchange(bob, carol)
-                await ledger.exchange(carol, bob)
+                await ledger.exchange(bob, carol, allow_route_rejection=fault_index == 2)
+                await ledger.exchange(carol, bob, allow_route_rejection=fault_index == 2)
             else:
                 await ledger.burst(alice, carol, 8)
                 await ledger.exchange(bob, alice)
@@ -339,11 +349,13 @@ async def scenario(args, root, client, report):
             while await base.request(cluster.api(1), '/user/onlinestatus', [p.uid for p in peers]):
                 await asyncio.sleep(0.1)
         assert all(not p.pending and not p.messages for p in peers), 'Unsettled control or receive state'
+        assert all(not peer.seen[counter] for peer, counter in ledger.route_rejections), 'Rejected SEND was delivered'
         assert sum(p.received for p in peers) == ledger.acked + ledger.ambiguous, 'Unreconciled delivery'
-        assert ledger.attempts == ledger.acked + ledger.queue_full + ledger.ambiguous
+        assert ledger.attempts == ledger.acked + ledger.queue_full + ledger.ambiguous + len(ledger.route_rejections)
         latencies = sorted(ledger.latencies)
         report.update(stage='passed', lifecycle_cycles=cycles, attempts=ledger.attempts,
             acked=ledger.acked, queue_full=ledger.queue_full, ambiguous_delivered=ledger.ambiguous,
+            recovery_route_rejections=dict(code=18, count=len(ledger.route_rejections), observed_deliveries=0),
             received=sum(p.received for p in peers), presence_cleared=True,
             latency_ms={str(p): round(latencies[min(len(latencies)-1, math.ceil(len(latencies)*p/100)-1)], 3)
                         for p in [50, 95, 99, 100]},

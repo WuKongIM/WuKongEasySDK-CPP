@@ -21,7 +21,14 @@ readline.createInterface({input: process.stdin}).on('line', async line => {
       emit({kind: 'reply', id: command.id, ok: true, destroyed: true});
       process.exit(0);
     } else { throw new Error('Unknown command'); }
-  } catch (_) { emit({kind: 'reply', id: command.id, ok: false}); }
+  } catch (error) {
+    // Keep only numeric codes and fixed categories; free-form protocol text may contain secrets.
+    const code = Number.isInteger(error?.code) ? error.code : null;
+    const category = typeof error?.message === 'string' && error.message.startsWith('Request timeout for method ')
+      ? 'timeout' : ['Not connected. Call connect() first.', 'WebSocket is not open.', 'Connection closed'].includes(error?.message)
+      ? 'connection' : 'request';
+    emit({kind: 'reply', id: command.id, ok: false, code, category});
+  }
 });
 im.connect().then(() => emit({kind: 'ready'})).catch(() => {
   emit({kind: 'fatal'}); im.destroy(); process.exit(1);

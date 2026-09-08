@@ -42,3 +42,18 @@ class ObserverTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+class RecoveryAccountingTests(unittest.IsolatedAsyncioTestCase):
+    async def test_only_explicit_recovery_route_rejection_is_admitted(self):
+        from unittest.mock import AsyncMock
+        receiver = SimpleNamespace(uid='receiver')
+        sender = SimpleNamespace(uid='sender', call=AsyncMock(return_value={'ok': False, 'code': 18}))
+        ledger = soak.Ledger()
+        await ledger.exchange(sender, receiver, allow_route_rejection=True)
+        self.assertEqual(len(ledger.route_rejections), 1)
+        self.assertEqual(ledger.acked, 0)
+        with self.assertRaisesRegex(AssertionError, 'Unexpected SEND failure'):
+            await ledger.exchange(sender, receiver)
+        sender.call.return_value = {'ok': False, 'code': 15}
+        with self.assertRaisesRegex(AssertionError, 'Unexpected SEND failure'):
+            await ledger.exchange(sender, receiver, allow_route_rejection=True)
