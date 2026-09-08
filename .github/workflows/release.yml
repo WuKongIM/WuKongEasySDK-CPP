@@ -133,6 +133,12 @@ jobs:
           if [ "$RUNNER_OS" = Windows ]; then
             echo 'C:\Program Files\Git\usr\bin' >> "$GITHUB_PATH"
           fi
+      - name: Install the pinned product Go toolchain
+        if: runner.os != 'Windows'
+        uses: actions/setup-go@fba3fb4ead8c8e09a06f1d32ae5436e5818eff15
+        with:
+          go-version: '1.25.11'
+          cache: false
       - name: Build pinned product server on Unix
         if: runner.os != 'Windows'
         shell: bash

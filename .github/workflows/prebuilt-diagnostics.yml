@@ -9,6 +9,9 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 10
     steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: '3.12'
@@ -21,7 +24,7 @@ jobs:
       - name: Probe exact failing archive
         shell: python
         run: |
-          import asyncio, hashlib, importlib.util, pathlib, socket, subprocess, time, zipfile
+          import asyncio, hashlib, importlib.util, os, pathlib, socket, subprocess, time, zipfile
           archive = next(pathlib.Path('download').glob('*.zip'))
           expected, name = archive.with_suffix('.sha256').read_text().split()
           assert name == archive.name and hashlib.sha256(archive.read_bytes()).hexdigest() == expected
@@ -65,3 +68,7 @@ jobs:
               server.close()
               await server.wait_closed()
           asyncio.run(refusal())
+          fixed = bundle / 'tests/fixed_fixture.py'
+          fixed.write_text(pathlib.Path('tests/integration.py').read_text(encoding='utf-8'), encoding='utf-8')
+          os.environ['PATH'] += os.pathsep + r'C:\Program Files\Git\usr\bin'
+          subprocess.run(['python', str(fixed), '--client', client], check=True, timeout=120)

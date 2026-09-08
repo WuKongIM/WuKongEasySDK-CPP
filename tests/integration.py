@@ -111,6 +111,14 @@ async def scenario(binary, mode, context=None, ca=None):
 
     server = await websockets.serve(handler, '127.0.0.1', 0, ssl=context)
     port = server.sockets[0].getsockname()[1]
+    # localhost may resolve to ::1 first. A refused IPv6 connect can take seconds
+    # on Windows, so both loopback families must serve the same test endpoint.
+    try:
+        ipv6_server = await websockets.serve(handler, '::1', port, ssl=context)
+    except BaseException:
+        server.close()
+        await server.wait_closed()
+        raise
     host = '127.0.0.1' if mode == 'tls_host' else 'localhost'
     url = f'{"wss" if context else "ws"}://{host}:{port}/ws'
     proc = await asyncio.create_subprocess_exec(binary, url, mode, *([str(ca)] if ca else []),
@@ -125,7 +133,9 @@ async def scenario(binary, mode, context=None, ca=None):
         if proc.returncode is None:
             proc.kill()
             await proc.wait()
+        ipv6_server.close()
         server.close()
+        await ipv6_server.wait_closed()
         await server.wait_closed()
 
 async def upgrade_timeout(binary):
