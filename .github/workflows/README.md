@@ -40,3 +40,9 @@ existing Release/draft and assets before resuming. User authorization to ship an
 SDK version covers its tag/Release, not a WuKongIM server/native-package release.
 No paid resources, external user messages, signing identity or scheduled workers
 are involved. See `docs/PREBUILT.md` for compatibility and upgrade boundaries.
+
+`prebuilt-diagnostics.yml` is a temporary, manual, read-only Windows fixture probe.
+It downloads the exact failed preview run 34192260675, compares three localhost
+and explicit-IPv4 exchanges with the same binary and unchanged 400 ms test timeout,
+and measures refused IPv6 versus reachable IPv4 loopback connections. It creates
+no releases or external connections beyond dependency/artifact downloads.

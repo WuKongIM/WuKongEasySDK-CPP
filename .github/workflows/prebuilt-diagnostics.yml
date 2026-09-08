@@ -1,0 +1,67 @@
+name: Probe Windows prebuilt networking
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  probe:
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@484a0b528fb4d7bd804637ccb632e47a0e638317
+        with:
+          name: prebuilt-x64-windows
+          run-id: 34192260675
+          github-token: ${{ github.token }}
+          path: download
+      - name: Probe exact failing archive
+        shell: python
+        run: |
+          import asyncio, hashlib, importlib.util, pathlib, socket, subprocess, time, zipfile
+          archive = next(pathlib.Path('download').glob('*.zip'))
+          expected, name = archive.with_suffix('.sha256').read_text().split()
+          assert name == archive.name and hashlib.sha256(archive.read_bytes()).hexdigest() == expected
+          with zipfile.ZipFile(archive) as z:
+              z.extractall('probe')
+          bundle = (pathlib.Path('probe') / archive.stem).resolve()
+          subprocess.run(['python', '-m', 'pip', 'install', '-r', str(bundle / 'tests/requirements.txt')], check=True)
+          build = pathlib.Path('probe-build').resolve()
+          subprocess.run(['cmake', '-S', str(bundle / 'tests'), '-B', str(build), '-A', 'x64',
+              '-DCMAKE_TOOLCHAIN_FILE=' + str(bundle / 'wukong-sdk.cmake')], check=True)
+          subprocess.run(['cmake', '--build', str(build), '--config', 'Debug', '--parallel', '2'], check=True)
+          client = str(build / 'Debug/wukong_integration_client.exe')
+          original = (bundle / 'tests/integration.py').read_text(encoding='utf-8')
+          print('[probe] localhost addresses:', [x[4][0] for x in socket.getaddrinfo('localhost', 12345, type=socket.SOCK_STREAM)], flush=True)
+          for label, text in [('original-localhost', original), ('explicit-ipv4', original.replace(
+                  "host = '127.0.0.1' if mode == 'tls_host' else 'localhost'", "host = '127.0.0.1'"))]:
+              fixture = bundle / 'tests/probe_fixture.py'
+              fixture.write_text(text, encoding='utf-8')
+              spec = importlib.util.spec_from_file_location('probe_fixture', fixture)
+              module = importlib.util.module_from_spec(spec)
+              spec.loader.exec_module(module)
+              for trial in range(3):
+                  start = time.monotonic()
+                  try:
+                      asyncio.run(module.scenario(client, 'exchange'))
+                      print('[probe]', label, trial, 'PASS', time.monotonic() - start, flush=True)
+                  except Exception as error:
+                      print('[probe]', label, trial, type(error).__name__, str(error), time.monotonic() - start, flush=True)
+          async def refusal():
+              server = await asyncio.start_server(lambda r,w: w.close(), '127.0.0.1', 0)
+              port = server.sockets[0].getsockname()[1]
+              for address in ('::1', '127.0.0.1'):
+                  start = time.monotonic()
+                  try:
+                      r,w = await asyncio.wait_for(asyncio.open_connection(address, port), 5)
+                      w.close()
+                      await w.wait_closed()
+                      print('[probe] TCP', address, 'PASS', time.monotonic() - start, flush=True)
+                  except Exception as error:
+                      print('[probe] TCP', address, type(error).__name__, time.monotonic() - start, flush=True)
+              server.close()
+              await server.wait_closed()
+          asyncio.run(refusal())
