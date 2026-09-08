@@ -151,9 +151,11 @@ struct WKIM::Impl : std::enable_shared_from_this<Impl> {
                 [weak, epoch](std::string text) {
                     if (auto self = weak.lock(); self && self->current(epoch)) self->receive(text);
                 },
-                [weak, epoch] {
+                [weak, epoch](bool protocolViolation) {
                     if (auto self = weak.lock(); self && self->current(epoch))
-                        self->fail(failure(ErrorCode::Transport, "WebSocket transport closed or failed"), true);
+                        self->fail(failure(protocolViolation ? ErrorCode::Protocol : ErrorCode::Transport,
+                            protocolViolation ? "Invalid WebSocket message" : "WebSocket transport closed or failed"),
+                            !protocolViolation);
                 }
             });
             transport->start();
@@ -326,7 +328,10 @@ struct WKIM::Impl : std::enable_shared_from_this<Impl> {
                       terminal ? "SDK has been destroyed" : "Client disconnected"));
         if (wasActive) emit(Event::Disconnect, {{"code", 1000}, {"reason", "Client disconnected"}});
         if (terminal) {
-            { std::lock_guard<std::mutex> lock(listenerMutex); listeners.clear(); }
+            // Capture destructors are application code too: release them outside SDK locks.
+            decltype(listeners) removed;
+            { std::lock_guard<std::mutex> lock(listenerMutex); removed.swap(listeners); }
+            removed.clear();
             guard.reset();
         }
     }
@@ -390,12 +395,22 @@ std::future<SendResult> WKIM::send(std::string channelId, ChannelType channelTyp
         self->request("send", Json::parse(encoded), self->options.requestTimeout,
             [self, complete](std::exception_ptr error, Json result) {
                 if (error) { complete(error, SendResult{}); return; }
-                try {
-                    auto ack = detail::sendResult(result);
-                    complete(nullptr, ack);
-                    self->emit(Event::SendAck, {{"messageId", ack.messageId}, {"messageSeq", ack.messageSeq}, {"reasonCode", ack.reasonCode}});
-                } catch (const Error&) { complete(std::current_exception(), SendResult{}); }
-                catch (...) { complete(failure(ErrorCode::Protocol, "Invalid SENDACK result"), SendResult{}); }
+                SendResult ack;
+                try { ack = detail::sendResult(result); }
+                catch (const Error& e) {
+                    auto rejected = std::current_exception();
+                    // A valid business rejection only fails this send; malformed protocol ends the session.
+                    if (e.code() == static_cast<int>(ErrorCode::Protocol)) self->fail(rejected, false);
+                    complete(rejected, SendResult{});
+                    return;
+                } catch (...) {
+                    auto rejected = failure(ErrorCode::Protocol, "Invalid SENDACK result");
+                    self->fail(rejected, false);
+                    complete(rejected, SendResult{});
+                    return;
+                }
+                complete(nullptr, ack);
+                self->emit(Event::SendAck, {{"messageId", ack.messageId}, {"messageSeq", ack.messageSeq}, {"reasonCode", ack.reasonCode}});
             });
     });
 }
@@ -414,8 +429,12 @@ WKIM::ListenerId WKIM::on(Event event, Listener listener) {
     return id;
 }
 void WKIM::off(ListenerId listener) {
-    std::lock_guard<std::mutex> lock(impl_->listenerMutex);
-    impl_->listeners.erase(listener);
+    auto self = impl_;
+    decltype(self->listeners)::node_type removed;
+    {
+        std::lock_guard<std::mutex> lock(self->listenerMutex);
+        removed = self->listeners.extract(listener);
+    } // Destroy captures after releasing the lock so their cleanup can reenter off().
 }
 ConnectionState WKIM::state() const noexcept { return impl_->state.load(); }
 } // namespace wukong

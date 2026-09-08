@@ -48,6 +48,8 @@ async def scenario(binary, mode, context=None, ca=None):
                         await send({'method': 'disconnect', 'params': {'reasonCode': 12, 'reason': 'CANARY_TOKEN'}})
                     if mode == 'malformed':
                         await ws.send('{broken CANARY_TOKEN')
+                    if mode == 'bad_frame':
+                        ws.transport.write(b'\x83\x00') # Reserved opcode: invalid server frame.
                     if mode == 'oversize':
                         await ws.send('x' * (1024 * 1024 + 1))
                     if mode in ('queue_limit', 'destroy_callback'):
@@ -65,6 +67,12 @@ async def scenario(binary, mode, context=None, ca=None):
                     assert params['clientMsgNo']
                     payload = json.loads(base64.b64decode(params['payload'], validate=True))
                     if mode in ('send_timeout', 'pending_disconnect', 'queue_limit'):
+                        continue
+                    if mode == 'bad_sendack':
+                        await send({'id': request['id'], 'result': {'reasonCode': 1}})
+                        continue
+                    if mode == 'send_rejected_ack':
+                        await send({'id': request['id'], 'result': {'reasonCode': 11}})
                         continue
                     if mode == 'send_error':
                         await send({'id': request['id'], 'error': {'code': 11, 'message': 'CANARY_TOKEN'}})
@@ -148,9 +156,9 @@ async def upgrade_timeout(binary):
             writer.close()
 
 async def main(binary):
-    for mode in ('exchange', 'bad_auth', 'bad_connack', 'connect_timeout', 'destroy_connect', 'send_error',
-                 'send_timeout', 'pending_disconnect', 'heartbeat_timeout', 'uncorrelated_pong', 'reconnect',
-                 'reconnect_exhausted', 'cancel_reconnect', 'server_disconnect', 'malformed', 'oversize',
+    for mode in ('exchange', 'bad_auth', 'bad_connack', 'connect_timeout', 'destroy_connect', 'send_error', 'send_rejected_ack',
+                 'bad_sendack', 'send_timeout', 'pending_disconnect', 'heartbeat_timeout', 'uncorrelated_pong', 'reconnect',
+                 'reconnect_exhausted', 'cancel_reconnect', 'server_disconnect', 'malformed', 'oversize', 'bad_frame',
                  'queue_limit', 'listener_cleanup', 'destroy_callback'):
         await scenario(binary, mode)
     await upgrade_timeout(binary)
@@ -165,7 +173,7 @@ async def main(binary):
         await scenario(binary, 'tls_ok', context, cert)
         await scenario(binary, 'tls_untrusted', context)
         await scenario(binary, 'tls_host', context, cert)
-    print('23 WS/WSS integration scenarios passed')
+    print('26 WS/WSS integration scenarios passed')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

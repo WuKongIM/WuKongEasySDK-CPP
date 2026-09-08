@@ -77,10 +77,10 @@ public:
         queuedBytes_ = 0;
     }
 private:
-    void fail() {
+    void fail(bool protocolViolation = false) {
         if (stopped_) return;
         cancel();
-        callbacks_.failed(); // Transport errors deliberately contain no endpoint/token/frame text.
+        callbacks_.failed(protocolViolation); // Transport errors deliberately contain no endpoint/token/frame text.
     }
     void handshake() {
         if constexpr (TLS) {
@@ -108,7 +108,11 @@ private:
         auto self = this->shared_from_this();
         stream_->async_read(buffer_, [self](boost::system::error_code ec, std::size_t) {
             if (self->stopped_) return;
-            if (ec) return self->fail();
+            if (ec) {
+                const bool protocolViolation = ec == websocket::condition::protocol_violation ||
+                    ec == websocket::error::message_too_big || ec == websocket::error::buffer_overflow;
+                return self->fail(protocolViolation);
+            }
             auto text = beast::buffers_to_string(self->buffer_.data());
             self->buffer_.consume(self->buffer_.size());
             self->callbacks_.message(std::move(text));

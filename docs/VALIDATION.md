@@ -56,3 +56,21 @@ in this repository's Actions tab and must be checked for the exact commit.
 These checks do not establish physical-device behavior, production CA/proxy
 configuration, offline recovery, capacity, token expiry policy, or a packaged
 release. WSS evidence comes from local test certificates, not production endpoints.
+
+## Lifecycle review follow-up (2026-09-08)
+
+The initial implementation at `8a3218cd5c9465f06df371f040a3641188bd4900`
+was reviewed against the pinned JS implementation and documented lifecycle contract.
+Before correction, new real-socket tests reproduced missing disconnect on malformed
+SENDACK and unwanted reconnect on oversized/invalid WebSocket frames. A separate
+bounded executable also reproduced deadlocks when a listener capture's destructor
+called `off()` during both explicit listener removal and terminal shutdown.
+
+After correction, macOS arm64 ASan/UBSan unit tests and 26 WS/WSS scenarios passed.
+Regression coverage includes both reentrant capture-cleanup paths, malformed
+SENDACK, valid rejected SENDACK, oversized messages with automatic reconnect
+still enabled, and invalid WebSocket opcodes. Callback-owned destruction now
+waits on terminal shutdown before releasing captured application state.
+Real C++/C++ and C++/JS product acceptance was rerun against the same pinned
+server and JS revisions above. The GitHub Actions matrix must still be checked
+for this follow-up commit; initial hosted results do not certify a newer tree.

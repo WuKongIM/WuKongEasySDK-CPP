@@ -11,7 +11,8 @@ public:
     struct Callbacks {
         std::function<void()> open;
         std::function<void(std::string)> message;
-        std::function<void()> failed;
+        // Protocol/size violations are terminal; network loss may be retried.
+        std::function<void(bool protocolViolation)> failed;
     };
     virtual ~Transport() = default;
     virtual void start() = 0;

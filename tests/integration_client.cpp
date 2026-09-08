@@ -58,7 +58,6 @@ int main(int argc, char** argv) {
         options.maxReconnectAttempts = 2;
         options.reconnectJitter = false;
         options.maxPendingRequests = 8;
-        if (mode == "oversize") options.autoReconnect = false;
         if (mode == "cancel_reconnect") options.pingInterval = 0ms;
         if (mode == "tls_ok" && argc > 3) options.caFile = argv[3];
         if (mode == "tls_host" && argc > 3) options.caFile = argv[3];
@@ -97,10 +96,15 @@ int main(int argc, char** argv) {
                 CHECK(events.wait(Event::CustomEvent, 2)["type"] == "verified");
                 CHECK(im->isConnected());
                 CHECK(events.count(Event::SendAck) == 1);
-            } else if (mode == "send_error") {
+            } else if (mode == "send_error" || mode == "send_rejected_ack") {
                 fails(im->send("bob", ChannelType::Person, {{"type", 1}}), 11);
                 CHECK(im->isConnected());
                 CHECK(events.count(Event::SendAck) == 0);
+            } else if (mode == "bad_sendack") {
+                fails(im->send("bob", ChannelType::Person, {{"type", 1}}), static_cast<int>(ErrorCode::Protocol));
+                events.wait(Event::Disconnect);
+                ready(im->destroy());
+                CHECK(events.count(Event::Reconnecting) == 0);
             } else if (mode == "send_timeout") {
                 fails(im->send("bob", ChannelType::Person, {{"type", 1}}), static_cast<int>(ErrorCode::Timeout));
                 CHECK(im->isConnected());
@@ -129,9 +133,9 @@ int main(int argc, char** argv) {
                 CHECK(ready(im->connect()).reasonCode == 1);
                 CHECK(events.wait(Event::CustomEvent)["type"] == "stable");
                 CHECK(events.count(Event::Connect) == 2);
-            } else if (mode == "server_disconnect" || mode == "malformed" || mode == "oversize") {
+            } else if (mode == "server_disconnect" || mode == "malformed" || mode == "oversize" || mode == "bad_frame") {
                 events.wait(Event::Disconnect);
-                CHECK(im->state() == ConnectionState::Disconnected);
+                ready(im->destroy()); // Barrier: failure handling and all callbacks have finished.
                 CHECK(events.count(Event::Reconnecting) == 0);
             } else if (mode == "queue_limit") {
                 std::promise<void> entered, resume;
@@ -156,9 +160,13 @@ int main(int argc, char** argv) {
                 CHECK(removedCalls == 0);
                 CHECK(im->isConnected());
             } else if (mode == "destroy_callback") {
-                std::promise<void> destroyed;
-                im->on(Event::CustomEvent, [&](const Json&) { im.reset(); destroyed.set_value(); });
-                ready(destroyed.get_future());
+                std::promise<std::future<void>> destroyed;
+                im->on(Event::CustomEvent, [&](const Json&) {
+                    auto shutdown = im->destroy();
+                    im.reset();
+                    destroyed.set_value(std::move(shutdown));
+                });
+                ready(ready(destroyed.get_future())); // Captures outlive terminal callback cleanup.
                 CHECK(!im);
             }
         }

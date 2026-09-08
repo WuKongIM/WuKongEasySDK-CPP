@@ -49,6 +49,22 @@ int main() {
         std::set<std::string> ids;
         for (int i = 0; i < 100; ++i) { auto id = uuid(); CHECK(id.size() == 36 && id[14] == '4'); ids.insert(id); }
         CHECK(ids.size() == 100);
+        // Captured objects can release other subscriptions when their listener is removed.
+        for (bool shutdown : {false, true}) {
+            WKIM owner("ws://127.0.0.1:1/ws", {"alice", "token"});
+            const auto first = owner.on(Event::Message, [](const Json&) {});
+            bool released = false;
+            auto capture = std::shared_ptr<int>(new int(0), [&](int* value) {
+                delete value;
+                owner.off(first);
+                released = true;
+            });
+            const auto second = owner.on(Event::Message, [capture](const Json&) {});
+            capture.reset();
+            if (shutdown) owner.destroy().get();
+            else owner.off(second);
+            CHECK(released);
+        }
         WKIM client("ws://127.0.0.1:1/ws", {"alice", "token"});
         throws([&] { client.send("bob", ChannelType::Person, payload).get(); });
         client.disconnect().get(); client.destroy().get();
