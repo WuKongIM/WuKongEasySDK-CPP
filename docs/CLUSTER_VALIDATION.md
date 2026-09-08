@@ -32,6 +32,12 @@ node IDs. Temporary TLS proxies terminate WSS with certificate and hostname
 verification enabled and forward opaque bytes to the product WebSocket Gateway.
 They never synthesize CONNECT, SENDACK, messages or other protocol responses.
 
+The C++ consumers use explicit test settings: a 3-second connection timeout,
+1.2-second request timeout, 500 ms heartbeat, 2-second pong timeout, and up to
+40 reconnect attempts with 500–1,500 ms backoff and jitter disabled. These
+settings bound fault injection and recovery observation; they do not change
+the SDK's shipped defaults.
+
 1. All six peer directions exchange Unicode/2 KB payloads. Each successful
    SENDACK's message ID and sequence must match the receiving client's event.
 2. Withhold Alice's downstream bytes after a SEND reaches Carol. The request
