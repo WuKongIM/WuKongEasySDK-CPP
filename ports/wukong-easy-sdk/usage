@@ -1,0 +1,8 @@
+wukong-easy-sdk provides a CMake target:
+
+    find_package(WuKongEasySDK CONFIG REQUIRED)
+    target_link_libraries(my_app PRIVATE WuKongEasySDK::WuKongEasySDK)
+
+    #include <wukong/wkim.hpp>
+
+The SDK is static. Ship runtime DLLs when using dynamic dependency triplets.
