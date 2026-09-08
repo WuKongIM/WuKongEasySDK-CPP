@@ -59,6 +59,17 @@ delivery. A timed-out SEND may already have been committed and delivered; the
 SDK does not queue or replay it automatically. Applications must reconcile
 uncertain outcomes using their message identity and backend history policy.
 
+## Recorded acceptance (2026-09-08)
+
+The [macOS arm64 receipt](CLUSTER_RECEIPT_MACOS.json) records a clean
+`8f014bcb831e1f0dc1716d834028526d652e82fd` harness run against the public archive.
+Both Debug and Release passed all stages, each with 20 message attempts, three
+initial active routes and zero routes after shutdown. The two ambiguous SENDs
+per configuration each produced one observed delivery; all successful SENDACKs
+matched their receiving events. Recovery durations are observations from this
+one-host run, not latency guarantees. Hosted Linux/macOS evidence is reported
+by the exact commit's `Released SDK three-node WSS acceptance` workflow.
+
 ## Reproduce
 
 Use Python 3.12, Node.js 22.15, Go 1.25.11, CMake 3.20+, Ninja, the OpenSSL CLI,

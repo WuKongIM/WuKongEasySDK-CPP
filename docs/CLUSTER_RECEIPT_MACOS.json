@@ -1,0 +1,161 @@
+{
+  "archive": "WuKongEasySDK-CPP-0.1.0-macos-arm64-appleclang.zip",
+  "archive_sha256": "b7508bdf9ba5235ee04d197af418fd0d12f6784ea173359fa985035e47e69bd8",
+  "build_info": {
+    "version": "0.1.0",
+    "triplet": "arm64-osx",
+    "compatibility": "macOS 14+, Apple Clang, libc++, arm64",
+    "compiler_environment": "AppleClang 15.0.0.15000309\nDarwin 23.6.0 arm64",
+    "packaging_commit": "88c855db0e707a15e56b569a0c9ac937907ebdf8",
+    "sdk_source_commit": "3e367a908f42385ab9306f9708b7456399cace7d",
+    "sdk_source_sha512": "afb445cdd5e7dd1ce6b21949b5bdbc0874a5160bcc4d48da48e3bb7864f2f057145e8fbd1302a94dc51d79990ee5d780518cf5291909aed130ed5c03750329aa",
+    "registry_baseline": "63ec99d34c7605b64e2173d201639042e0e49de9",
+    "vcpkg_baseline": "04a9d8e5212d01ee1dd9478eadd9caade4f8b0d4",
+    "configurations": [
+      "Debug",
+      "Release"
+    ],
+    "sdk_linkage": "static"
+  },
+  "server_revision": "5f5003778ccee6786591ed9968a5185e9213ea55",
+  "server_sha256": "3edad9f6cbb6746e48e765e3da181f3edaea571117d88a5904c117ce9bafb50c",
+  "js_revision": "9c03c98c725982fac224cd1d3b52456eae983975",
+  "js_entry_sha256": "640a8b7f4caf4cf4c99f7d87b4562dcc6e01774bca06f94c34a88f555a70d5da",
+  "node": "v22.15.0",
+  "cmake": "cmake version 4.4.3",
+  "harness_revision": "8f014bcb831e1f0dc1716d834028526d652e82fd",
+  "harness_dirty": false,
+  "harness_sha256": {
+    "cluster.py": "c99a0fda10374d6a41636efdb105f97c9670fe7c27fa903e1bcb287316a956c6",
+    "cluster_peer.cjs": "8e784558f881358ccb0fce565e9cc448411fab50edb67a01085a76d32d722bf0",
+    "cluster_consumer/CMakeLists.txt": "6604540845a35e49f4e104c33d8edd3fbeffa5498880808dfcddf9b35e7ce1e1",
+    "cluster_consumer/peer.cpp": "8a0bbf1e1992578ffec8f96784cbfc427dc144f76746c8bc274278fdfcdd5e5b"
+  },
+  "results": [
+    {
+      "configuration": "Debug",
+      "stage": "passed",
+      "faults": [
+        {
+          "kind": "withheld_ack_timeout",
+          "send_error": -3,
+          "request_seconds": 1.202,
+          "recovery_seconds": 3.81,
+          "ambiguous_message_deliveries": 1
+        },
+        {
+          "kind": "withheld_ack_transport_cut",
+          "send_error": -4,
+          "request_seconds": 0.066,
+          "recovery_seconds": 2.727,
+          "ambiguous_message_deliveries": 1
+        },
+        {
+          "kind": "ingress_crash_restart",
+          "node_id": 1,
+          "surviving_nodes_bidirectional_messages": 2,
+          "recovery_seconds": 6.494
+        }
+      ],
+      "message_attempts": 20,
+      "initial_online_routes": 3,
+      "presence_cleared": true,
+      "peers": [
+        {
+          "uid": "cpp-cluster-alice",
+          "node_ids": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "received": 6,
+          "reconnecting_events": 9
+        },
+        {
+          "uid": "cpp-cluster-bob",
+          "node_ids": [
+            2
+          ],
+          "received": 5,
+          "reconnecting_events": 0
+        },
+        {
+          "uid": "cpp-cluster-carol",
+          "node_ids": [
+            3
+          ],
+          "received": 9,
+          "reconnecting_events": 0
+        }
+      ]
+    },
+    {
+      "configuration": "Release",
+      "stage": "passed",
+      "faults": [
+        {
+          "kind": "withheld_ack_timeout",
+          "send_error": -3,
+          "request_seconds": 1.21,
+          "recovery_seconds": 3.857,
+          "ambiguous_message_deliveries": 1
+        },
+        {
+          "kind": "withheld_ack_transport_cut",
+          "send_error": -4,
+          "request_seconds": 0.063,
+          "recovery_seconds": 2.795,
+          "ambiguous_message_deliveries": 1
+        },
+        {
+          "kind": "ingress_crash_restart",
+          "node_id": 1,
+          "surviving_nodes_bidirectional_messages": 2,
+          "recovery_seconds": 4.962
+        }
+      ],
+      "message_attempts": 20,
+      "initial_online_routes": 3,
+      "presence_cleared": true,
+      "peers": [
+        {
+          "uid": "cpp-cluster-alice",
+          "node_ids": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "received": 6,
+          "reconnecting_events": 8
+        },
+        {
+          "uid": "cpp-cluster-bob",
+          "node_ids": [
+            2
+          ],
+          "received": 5,
+          "reconnecting_events": 0
+        },
+        {
+          "uid": "cpp-cluster-carol",
+          "node_ids": [
+            3
+          ],
+          "received": 9,
+          "reconnecting_events": 0
+        }
+      ]
+    }
+  ],
+  "topology": {
+    "nodes": 3,
+    "hash_slots": 256,
+    "logical_slots": 12,
+    "slot_replicas": 3,
+    "token_auth": true,
+    "transport": "WSS through loopback TLS termination"
+  },
+  "cleanup": "owned clients, proxies and nodes stopped; temporary keys/data removed"
+}
