@@ -9,7 +9,26 @@ CONNECT, online messaging, automatic RECVACK, heartbeat, bounded reconnection,
 and custom event notifications.
 
 The project version is **0.1.0**. Use the WuKongIM-maintained vcpkg Git registry below or CMake source/install
-integration. No prebuilt SDK archive is published.
+integration. Versioned prebuilt archives are available for Windows x64, macOS arm64 and Linux x64.
+
+## Download and use a prebuilt SDK
+
+[Release v0.1.0](https://github.com/WuKongIM/WuKongEasySDK-CPP/releases/tag/v0.1.0)
+contains three ZIPs with Debug/Release SDK libraries, all third-party dependencies,
+licenses and an independent example. Download the matching compiler/architecture
+package and `SHA256SUMS`, verify its hash, and extract it. No vcpkg installation is
+required. From the extracted directory:
+
+```sh
+cmake -S example -B build -DCMAKE_TOOLCHAIN_FILE="$PWD/wukong-sdk.cmake" -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release --parallel 2
+ctest --test-dir build -C Release --output-on-failure
+```
+
+See [prebuilt integration](docs/PREBUILT.md) for Windows PowerShell commands,
+compiler/CRT requirements, Windows DLL deployment, explicit WSS CA bundles and
+upgrades. Use vcpkg below when your project needs a different dependency/compiler
+configuration.
 
 ## Recommended: vcpkg + CMake
 

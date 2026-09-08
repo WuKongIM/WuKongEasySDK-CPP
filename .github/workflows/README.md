@@ -16,3 +16,25 @@ Unix jobs bootstrap their own temporary vcpkg checkout. The package manager
 builds dependencies from source or uses its normal binary cache. This is
 package-consumption verification, not publication to Microsoft's curated
 registry or distribution of prebuilt SDK archives.
+
+## Prebuilt SDK archives
+
+`release.yml` builds exports from the exact public SDK registry and dependency
+baseline, uploads three preview ZIPs, then consumes them in fresh jobs without a
+C++ SDK checkout or vcpkg installation. Debug/Release lifecycle and 26 WS/WSS
+scenarios run on all three platforms. Unix jobs additionally compile the pinned
+product server and exercise a temporary token-authenticated 256-hash-slot
+single-node cluster. These jobs use read-only permissions and bounded timeouts;
+fixtures only contact loopback. Preview pushes and manual runs never publish.
+
+A `v*` tag push is the publication trigger. The tag must equal the CMake version,
+and a unique nonempty dated Changelog section must pass before artifact upload.
+Only after every archive passes independent acceptance may the isolated publish
+job obtain `contents: write`; it downloads the exact artifacts and checks all three
+archive names/hashes before creating the GitHub Release. It never executes SDK
+source. Existing release assets must not be overwritten. For failed previews,
+inspect the failing job before retrying; for a publication failure inspect the
+existing Release/draft and assets before resuming. User authorization to ship an
+SDK version covers its tag/Release, not a WuKongIM server/native-package release.
+No paid resources, external user messages, signing identity or scheduled workers
+are involved. See `docs/PREBUILT.md` for compatibility and upgrade boundaries.

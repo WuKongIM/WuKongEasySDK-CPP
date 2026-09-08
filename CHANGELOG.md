@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [0.1.0] - 2026-09-08
+
+- Publish relocatable Windows x64, macOS arm64 and Linux x64 prebuilt archives
+  with Debug/Release libraries, dependencies, licenses, an offline CMake example,
+  checksums and independent archive-consumer WS/WSS acceptance.
+
 - Add the WuKongIM-maintained vcpkg Git registry for `wukong-easy-sdk` 0.1.0,
   automatic Boost/OpenSSL/JSON dependency installation, and an independent
   CMake consumer with Debug/Release validation on Linux, macOS and Windows.

@@ -7,7 +7,30 @@ WuKongIM 的 C++17 轻量通信 SDK，参考
 （`9c03c98c725982fac224cd1d3b52456eae983975`）的接口与 JSON-RPC 协议。
 提供 WS/WSS 连接、CONNECT 鉴权、在线消息、自动 RECVACK、心跳、有界重连和自定义事件。
 
-工程版本为 **0.1.0**，支持本仓库维护的 vcpkg Git registry，也可使用源码和 CMake 安装导出；尚无预编译 SDK 压缩包。
+工程版本为 **0.1.0**，支持本仓库维护的 vcpkg Git registry，也可使用源码和 CMake 安装导出；提供 Windows x64、macOS arm64 和 Linux x64 预编译压缩包。
+
+## 下载预编译包，解压接入
+
+从 [Release v0.1.0](https://github.com/WuKongIM/WuKongEasySDK-CPP/releases/tag/v0.1.0)
+下载匹配架构和编译器的 ZIP 及 `SHA256SUMS`，验证 SHA-256 后解压。
+包内包含 Debug/Release SDK、第三方依赖、许可文件和独立示例，无需另装 vcpkg。
+在解压目录执行：
+
+```sh
+cmake -S example -B build -DCMAKE_TOOLCHAIN_FILE="$PWD/wukong-sdk.cmake" -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release --parallel 2
+ctest --test-dir build -C Release --output-on-failure
+```
+
+Windows 请使用 Visual Studio 2022 和 `-A x64`；PowerShell 同样使用 `"$PWD/wukong-sdk.cmake"`。
+Linux 包要求 Ubuntu 24.04 x64 / GCC 13，macOS 包面向 macOS 14+ arm64 / Apple Clang；
+Windows 包使用 v143 工具集，Release 为 `/MD`，Debug 为 `/MDd`。
+分发 Windows 应用时携带复制到可执行文件旁的 OpenSSL DLL，并安装对应 VC++ 运行库。
+WSS 请通过 `Options::caFile`（交互示例为 `WKIM_CA_FILE`）提供受维护的 CA 证书包；
+不要依赖 OpenSSL 构建机的默认证书路径。
+
+完整内容、验证范围与升级步骤见 [预编译包说明](docs/PREBUILT.md)。
+其他架构、编译器、CRT 或依赖组合使用下方的 vcpkg/源码方式。
 
 ## 推荐：vcpkg + CMake
 
