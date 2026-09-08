@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add public-archive resource and one-hour soak acceptance, concurrent request
+  bounds, in-process lifecycle churn, sanitized process samples and manual CI.
+
 - Add repeatable three-node WSS acceptance of the published 0.1.0 archives,
   including C++/JS messaging, ambiguous SEND outcomes, ingress restart,
   surviving-node traffic and online-route cleanup in Debug and Release.

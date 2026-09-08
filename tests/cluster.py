@@ -331,11 +331,7 @@ class Peer:
             if kind == "reply":
                 self.pending[item["id"]].set_result(item)
             elif kind == "message":
-                value = item["message"]
-                counter = value["payload"]["counter"]
-                assert len(self.messages) < 128, "Receive budget exceeded"
-                self.messages[counter] = value
-                self.counts[counter] += 1
+                self.record_message(item["message"])
             elif kind == "connect":
                 self.connected = True
                 self.connects.append(item["result"])
@@ -347,7 +343,16 @@ class Peer:
             elif kind == "error":
                 self.errors += 1
             else:
-                raise AssertionError(f"Peer failure: {kind}")
+                self.extra_event(kind)
+
+    def record_message(self, value):
+        counter = value["payload"]["counter"]
+        assert len(self.messages) < 128, "Receive budget exceeded"
+        self.messages[counter] = value
+        self.counts[counter] += 1
+
+    def extra_event(self, kind):
+        raise AssertionError(f"Peer failure: {kind}")
 
     async def call(self, kind, **fields):
         self.next_id += 1

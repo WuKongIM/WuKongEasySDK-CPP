@@ -61,3 +61,17 @@ are interrupted. It publishes an acceptance receipt, never a package, Release,
 credential or server log. It provisions no cloud resources. Inspect the exact
 failed stage before retrying. See `docs/CLUSTER_VALIDATION.md` for reproduction
 and evidence boundaries.
+
+## Released SDK resource and soak acceptance
+
+`soak.yml` consumes the same checksum-pinned public archives, server and JS SDK
+as `cluster.yml`. Relevant pushes/PRs run a 120-second Release workload on
+Linux/macOS. Manual dispatch accepts only 120 or 3,600 seconds and Debug or
+Release; a one-hour job has a 75-minute outer timeout. There is no schedule.
+It runs owned loopback processes, observes them with `ps`/`lsof`, injects two
+bounded faults, checks concurrent request admission and 100 in-process client
+replacement cycles, then checks SDK worker/socket and online-route cleanup.
+Only sanitized receipts and bounded resource samples are uploaded, including
+failed-stage evidence. It does not publish packages, contact external users,
+provision servers or change SDK defaults. Inspect the precise failure before
+retrying. The short run is not one-hour evidence; see `docs/SOAK_VALIDATION.md`.

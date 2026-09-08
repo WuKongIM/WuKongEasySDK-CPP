@@ -1,0 +1,100 @@
+name: Released SDK resource and soak acceptance
+on:
+  workflow_dispatch:
+    inputs:
+      duration_seconds:
+        description: Fixed workload duration (120 is short acceptance; 3600 is one-hour soak)
+        type: choice
+        options: ['120', '3600']
+        default: '120'
+      configuration:
+        description: Archive consumer build configuration
+        type: choice
+        options: [Release, Debug]
+        default: Release
+  push:
+    paths:
+      - 'tests/soak.py'
+      - 'tests/test_soak.py'
+      - 'tests/cluster.py'
+      - 'tests/cluster_peer.cjs'
+      - 'tests/cluster_consumer/**'
+      - '.github/workflows/soak.yml'
+  pull_request:
+    paths:
+      - 'tests/soak.py'
+      - 'tests/test_soak.py'
+      - 'tests/cluster.py'
+      - 'tests/cluster_peer.cjs'
+      - 'tests/cluster_consumer/**'
+      - '.github/workflows/soak.yml'
+permissions:
+  contents: read
+jobs:
+  acceptance:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            archive: WuKongEasySDK-CPP-0.1.0-linux-x64-gcc13.zip
+          - os: macos-14
+            archive: WuKongEasySDK-CPP-0.1.0-macos-arm64-appleclang.zip
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && inputs.duration_seconds == '3600' && 75 || 20 }}
+    steps:
+      - name: Install process observation tools on Linux
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y lsof
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-go@fba3fb4ead8c8e09a06f1d32ae5436e5818eff15
+        with:
+          go-version: '1.25.11'
+          cache: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.15.0'
+      - name: Build the pinned product and reference JS SDK
+        shell: bash
+        run: |
+          git init "$RUNNER_TEMP/cluster-server"
+          git -C "$RUNNER_TEMP/cluster-server" remote add origin https://github.com/WuKongIM/WuKongIM.git
+          git -C "$RUNNER_TEMP/cluster-server" fetch --depth 1 origin 5f5003778ccee6786591ed9968a5185e9213ea55
+          git -C "$RUNNER_TEMP/cluster-server" checkout --detach FETCH_HEAD
+          (cd "$RUNNER_TEMP/cluster-server" && GOWORK=off go build -buildvcs=true -trimpath -o "$RUNNER_TEMP/wukongim" ./cmd/wukongim)
+          git init "$RUNNER_TEMP/reference-js"
+          git -C "$RUNNER_TEMP/reference-js" remote add origin https://github.com/WuKongIM/WuKongEasySDK-JS.git
+          git -C "$RUNNER_TEMP/reference-js" fetch --depth 1 origin 9c03c98c725982fac224cd1d3b52456eae983975
+          git -C "$RUNNER_TEMP/reference-js" checkout --detach FETCH_HEAD
+          npm --prefix "$RUNNER_TEMP/reference-js" ci --no-audit --no-fund
+          npm --prefix "$RUNNER_TEMP/reference-js" run build
+      - name: Validate resource observation contracts
+        run: python -m unittest discover -s tests -p test_soak.py
+      - name: Consume the immutable release and run the bounded workload
+        shell: bash
+        env:
+          ARCHIVE: ${{ matrix.archive }}
+          DURATION: ${{ inputs.duration_seconds || '120' }}
+          CONFIGURATION: ${{ inputs.configuration || 'Release' }}
+        run: |
+          curl --fail --location --retry 2 --connect-timeout 15 --max-time 120 \
+            "https://github.com/WuKongIM/WuKongEasySDK-CPP/releases/download/v0.1.0/$ARCHIVE" \
+            --output "$RUNNER_TEMP/$ARCHIVE"
+          python tests/soak.py --archive "$RUNNER_TEMP/$ARCHIVE" \
+            --server "$RUNNER_TEMP/wukongim" \
+            --js-entry "$RUNNER_TEMP/reference-js/dist/cjs/index.js" \
+            --duration-seconds "$DURATION" --configuration "$CONFIGURATION" \
+            --report "$RUNNER_TEMP/soak-receipt.json"
+      - name: Retain the sanitized result and bounded process samples
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: released-soak-${{ matrix.os }}
+          path: ${{ runner.temp }}/soak-receipt.json
+          retention-days: 14
+          if-no-files-found: warn
