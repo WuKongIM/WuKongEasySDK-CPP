@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.20)
+project(WuKongReleasedClusterConsumer LANGUAGES CXX)
+find_package(WuKongEasySDK 0.1 CONFIG REQUIRED)
+add_executable(wukong_cluster_peer peer.cpp)
+target_link_libraries(wukong_cluster_peer PRIVATE WuKongEasySDK::WuKongEasySDK)

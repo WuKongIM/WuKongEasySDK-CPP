@@ -43,3 +43,21 @@ existing Release/draft and assets before resuming. User authorization to ship an
 SDK version covers its tag/Release, not a WuKongIM server/native-package release.
 No paid resources, external user messages, signing identity or scheduled workers
 are involved. See `docs/PREBUILT.md` for compatibility and upgrade boundaries.
+
+## Released SDK three-node acceptance
+
+`cluster.yml` downloads the immutable public v0.1.0 Linux/macOS archives and
+checks the exact SHA256 and file ledger before compiling independent consumer
+code. It never builds C++ SDK implementation sources. The pinned product server
+and reference JS SDK run only on loopback with temporary Tokens and a test CA.
+Debug and Release each exercise a three-node cluster with 256 hash slots,
+12 logical Slots and three Slot replicas: cross-node messaging, withheld-ACK
+timeout/transport loss, reconnect without SEND replay, ingress process crash,
+surviving-node traffic, same-directory restart, and online-route cleanup.
+
+The workflow is read-only, bounded to 20 minutes, and runs on relevant changes
+or explicit manual dispatch. Only its owned loopback connections and processes
+are interrupted. It publishes an acceptance receipt, never a package, Release,
+credential or server log. It provisions no cloud resources. Inspect the exact
+failed stage before retrying. See `docs/CLUSTER_VALIDATION.md` for reproduction
+and evidence boundaries.

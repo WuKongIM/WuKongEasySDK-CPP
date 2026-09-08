@@ -1,0 +1,76 @@
+name: Released SDK three-node WSS acceptance
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tests/cluster.py'
+      - 'tests/cluster_peer.cjs'
+      - 'tests/cluster_consumer/**'
+      - '.github/workflows/cluster.yml'
+  pull_request:
+    paths:
+      - 'tests/cluster.py'
+      - 'tests/cluster_peer.cjs'
+      - 'tests/cluster_consumer/**'
+      - '.github/workflows/cluster.yml'
+permissions:
+  contents: read
+jobs:
+  acceptance:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            archive: WuKongEasySDK-CPP-0.1.0-linux-x64-gcc13.zip
+          - os: macos-14
+            archive: WuKongEasySDK-CPP-0.1.0-macos-arm64-appleclang.zip
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-go@fba3fb4ead8c8e09a06f1d32ae5436e5818eff15
+        with:
+          go-version: '1.25.11'
+          cache: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.15.0'
+      - name: Build the pinned product and reference JS SDK
+        shell: bash
+        run: |
+          git init "$RUNNER_TEMP/cluster-server"
+          git -C "$RUNNER_TEMP/cluster-server" remote add origin https://github.com/WuKongIM/WuKongIM.git
+          git -C "$RUNNER_TEMP/cluster-server" fetch --depth 1 origin 5f5003778ccee6786591ed9968a5185e9213ea55
+          git -C "$RUNNER_TEMP/cluster-server" checkout --detach FETCH_HEAD
+          (cd "$RUNNER_TEMP/cluster-server" && GOWORK=off go build -buildvcs=true -trimpath -o "$RUNNER_TEMP/wukongim" ./cmd/wukongim)
+          git init "$RUNNER_TEMP/reference-js"
+          git -C "$RUNNER_TEMP/reference-js" remote add origin https://github.com/WuKongIM/WuKongEasySDK-JS.git
+          git -C "$RUNNER_TEMP/reference-js" fetch --depth 1 origin 9c03c98c725982fac224cd1d3b52456eae983975
+          git -C "$RUNNER_TEMP/reference-js" checkout --detach FETCH_HEAD
+          npm --prefix "$RUNNER_TEMP/reference-js" ci --no-audit --no-fund
+          npm --prefix "$RUNNER_TEMP/reference-js" run build
+      - name: Download and verify the published SDK in independent Debug and Release consumers
+        shell: bash
+        env:
+          ARCHIVE: ${{ matrix.archive }}
+        run: |
+          curl --fail --location --retry 2 --connect-timeout 15 --max-time 120 \
+            "https://github.com/WuKongIM/WuKongEasySDK-CPP/releases/download/v0.1.0/$ARCHIVE" \
+            --output "$RUNNER_TEMP/$ARCHIVE"
+          python tests/cluster.py --archive "$RUNNER_TEMP/$ARCHIVE" \
+            --server "$RUNNER_TEMP/wukongim" \
+            --js-entry "$RUNNER_TEMP/reference-js/dist/cjs/index.js" \
+            --report "$RUNNER_TEMP/three-node-receipt.json"
+      - name: Retain the bounded acceptance receipt
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: released-three-node-${{ matrix.os }}
+          path: ${{ runner.temp }}/three-node-receipt.json
+          retention-days: 14
+          if-no-files-found: error

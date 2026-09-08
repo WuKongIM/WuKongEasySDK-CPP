@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add repeatable three-node WSS acceptance of the published 0.1.0 archives,
+  including C++/JS messaging, ambiguous SEND outcomes, ingress restart,
+  surviving-node traffic and online-route cleanup in Debug and Release.
+
 ## [0.1.0] - 2026-09-08
 
 - Publish relocatable Windows x64, macOS arm64 and Linux x64 prebuilt archives
