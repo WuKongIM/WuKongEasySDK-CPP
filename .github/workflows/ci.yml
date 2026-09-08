@@ -1,6 +1,7 @@
 name: C++ SDK validation
 on:
   push:
+    branches: ['**']
   pull_request:
 permissions:
   contents: read

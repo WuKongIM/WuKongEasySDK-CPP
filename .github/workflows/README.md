@@ -25,7 +25,9 @@ C++ SDK checkout or vcpkg installation. Debug/Release lifecycle and 26 WS/WSS
 scenarios run on all three platforms. Unix jobs additionally compile the pinned
 product server and exercise a temporary token-authenticated 256-hash-slot
 single-node cluster. These jobs use read-only permissions and bounded timeouts;
-fixtures only contact loopback. Preview pushes and manual runs never publish.
+fixtures only contact loopback. Packaging-branch pushes, pull requests and manual runs produce previews only.
+Source CI runs on branches/PRs; version tags run the archive pipeline, avoiding
+duplicate source builds for the same release.
 
 A `v*` tag push is the publication trigger. The tag must equal the CMake version,
 and a unique nonempty dated Changelog section must pass before artifact upload.

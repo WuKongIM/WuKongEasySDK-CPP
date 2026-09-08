@@ -1,7 +1,7 @@
 name: Prebuilt SDK archives
 on:
   push:
-    branches: ['main', 'codex/prebuilt-sdk']
+    branches: ['codex/prebuilt-sdk']
     tags: ['v*']
     paths:
       - 'scripts/**'
