@@ -39,10 +39,6 @@ class ObserverTests(unittest.TestCase):
         self.assertEqual(peer.received, 2)
         self.assertEqual(len(peer.messages), 1)
 
-
-if __name__ == '__main__':
-    unittest.main()
-
 class RecoveryAccountingTests(unittest.IsolatedAsyncioTestCase):
     async def test_only_explicit_recovery_route_rejection_is_admitted(self):
         from unittest.mock import AsyncMock
@@ -57,3 +53,18 @@ class RecoveryAccountingTests(unittest.IsolatedAsyncioTestCase):
         sender.call.return_value = {'ok': False, 'code': 15}
         with self.assertRaisesRegex(AssertionError, 'Unexpected SEND failure'):
             await ledger.exchange(sender, receiver, allow_route_rejection=True)
+
+    async def test_timeout_is_uncertain_only_inside_recovery(self):
+        from unittest.mock import AsyncMock
+        receiver = SimpleNamespace(uid='receiver')
+        sender = SimpleNamespace(uid='sender', call=AsyncMock(return_value={'ok': False, 'code': -3}))
+        ledger = soak.Ledger()
+        await ledger.exchange(sender, receiver, allow_route_rejection=True)
+        self.assertEqual(len(ledger.recovery_unknown), 1)
+        self.assertEqual(ledger.acked, 0)
+        with self.assertRaisesRegex(AssertionError, 'Unexpected SEND failure'):
+            await ledger.exchange(sender, receiver)
+
+
+if __name__ == '__main__':
+    unittest.main()

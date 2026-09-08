@@ -306,6 +306,7 @@ dir = "{node / 'logs'}"
 
 class Peer:
     """Bounded NDJSON control for independent C++/JS processes; no protocol emulation."""
+    call_timeout = 12
     def __init__(self, uid):
         self.uid = uid
         self.process = self.reader = None
@@ -362,7 +363,7 @@ class Peer:
         try:
             self.process.stdin.write(json.dumps(dict(id=identity, kind=kind, **fields)).encode() + b"\n")
             await self.process.stdin.drain()
-            async with asyncio.timeout(12):
+            async with asyncio.timeout(self.call_timeout):
                 while not future.done():
                     if self.reader.done():
                         self.reader.result()

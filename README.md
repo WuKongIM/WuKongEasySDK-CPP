@@ -312,6 +312,9 @@ HTTP, verifies C++/C++ exchange, reconnect, invalid-token rejection and presence
 cleanup, optionally runs C++/JS exchange, then stops only its own processes.
 These administration operations belong to the test harness, never to SDK code.
 See [validation evidence](docs/VALIDATION.md) for exact scope and revisions.
+Public archives additionally have [three-node WSS acceptance](docs/CLUSTER_VALIDATION.md)
+and [resource/one-hour soak checks](docs/SOAK_VALIDATION.md), with pinned inputs,
+bounded loopback faults and separate short/long receipts.
 
 ## License
 

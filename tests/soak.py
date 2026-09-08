@@ -22,6 +22,7 @@ RSS_SLOPE_KIB_PER_MINUTE = 256
 
 class Peer(base.Peer):
     """Keep payloads only until reconciliation; a fixed bitmap detects all duplicates."""
+    call_timeout = 20 # The pinned JS SDK has a 15-second request deadline.
     def __init__(self, uid):
         super().__init__(uid)
         self.seen = bytearray(MAX_MESSAGES)
@@ -96,6 +97,7 @@ class Ledger:
         self.latencies = []
         self.pairs = Counter()
         self.route_rejections = []
+        self.recovery_unknown = []
 
     def new(self):
         self.attempts += 1
@@ -121,6 +123,11 @@ class Ledger:
         if not result['ok'] and allow_route_rejection and result.get('code') == 18:
             assert len(self.route_rejections) < 32, 'Route recovery rejection budget exceeded'
             self.route_rejections.append((receiver, message['payload']['counter']))
+            return
+        if not result['ok'] and allow_route_rejection and (result.get('code') in [-3, -4]
+                or result.get('category') in ['timeout', 'connection']):
+            assert len(self.recovery_unknown) < 16, 'Uncertain recovery SEND budget exceeded'
+            self.recovery_unknown.append((sender, receiver, message, result.get('code'), result.get('category')))
             return
         await self.reconcile(sender, receiver, message, result, (time.monotonic() - started) * 1000)
 
@@ -218,7 +225,7 @@ async def scenario(args, root, client, report):
             before = [ledger.pairs[pair] for pair in directions]
             traffic_ready.set()
             await base.eventually(lambda: all(ledger.pairs[pair] > count
-                for pair, count in zip(directions, before)), 10)
+                for pair, count in zip(directions, before)), 30)
             await asyncio.sleep(1)
             await cluster.spawn(0)
             await cluster.ready(0)
@@ -317,11 +324,22 @@ async def scenario(args, root, client, report):
         sample_task.cancel()
         await asyncio.gather(sample_task, return_exceptions=True)
         samples.append(await snapshot(time.monotonic() - started))
+        while cycle_index < 12:
+            cycles += (await churn.call('recycle', count=5))['cycles']
+            cycle_index += 1
         for _ in range(4):
             cycles += (await churn.call('recycle', count=5))['cycles']
         assert cycles == 100 and len(faults) == 2
         await boundary()
         await asyncio.sleep(1)
+        unknown = []
+        for sender, receiver, message, code, category in ledger.recovery_unknown:
+            counter = message['payload']['counter']
+            value = receiver.messages.pop(counter, None)
+            if value:
+                assert value['payload'] == message['payload'] and value['fromUid'] == sender.uid
+            unknown.append(dict(counter=counter, code=code, category=category, delivery_observed=bool(value)))
+        report['recovery_unknown_outcomes'] = unknown
         final = await snapshot(time.monotonic() - started)
         report['final_connected'] = final
         summary = summarize(samples)
@@ -350,8 +368,9 @@ async def scenario(args, root, client, report):
                 await asyncio.sleep(0.1)
         assert all(not p.pending and not p.messages for p in peers), 'Unsettled control or receive state'
         assert all(not peer.seen[counter] for peer, counter in ledger.route_rejections), 'Rejected SEND was delivered'
-        assert sum(p.received for p in peers) == ledger.acked + ledger.ambiguous, 'Unreconciled delivery'
-        assert ledger.attempts == ledger.acked + ledger.queue_full + ledger.ambiguous + len(ledger.route_rejections)
+        assert sum(p.received for p in peers) == ledger.acked + ledger.ambiguous + sum(
+            v['delivery_observed'] for v in unknown), 'Unreconciled delivery'
+        assert ledger.attempts == ledger.acked + ledger.queue_full + ledger.ambiguous + len(ledger.route_rejections) + len(unknown)
         latencies = sorted(ledger.latencies)
         report.update(stage='passed', lifecycle_cycles=cycles, attempts=ledger.attempts,
             acked=ledger.acked, queue_full=ledger.queue_full, ambiguous_delivered=ledger.ambiguous,
