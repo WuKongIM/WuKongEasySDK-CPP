@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.20)
+project(WuKongConsumer LANGUAGES CXX)
+find_package(WuKongEasySDK 0.1 CONFIG REQUIRED)
+add_executable(consumer main.cpp)
+target_link_libraries(consumer PRIVATE WuKongEasySDK::WuKongEasySDK)

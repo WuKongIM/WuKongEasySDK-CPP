@@ -1,0 +1,7 @@
+@PACKAGE_INIT@
+include(CMakeFindDependencyMacro)
+find_dependency(Boost 1.74 CONFIG)
+find_dependency(OpenSSL 1.1.1)
+find_dependency(Threads)
+find_dependency(nlohmann_json 3.11 CONFIG)
+include("${CMAKE_CURRENT_LIST_DIR}/WuKongEasySDKTargets.cmake")
