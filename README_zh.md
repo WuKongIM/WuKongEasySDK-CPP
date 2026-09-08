@@ -29,6 +29,7 @@ ctest --test-dir build -C Release --output-on-failure
 Windows 使用 Visual Studio 2022 和 vcpkg，`VCPKG_ROOT` 指向 vcpkg 安装目录：
 
 ```powershell
+git -C "$env:VCPKG_ROOT" fetch origin 04a9d8e5212d01ee1dd9478eadd9caade4f8b0d4
 cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows
 cmake --build build --config Release --parallel 2
 ctest --test-dir build -C Release --output-on-failure

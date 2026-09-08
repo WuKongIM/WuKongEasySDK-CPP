@@ -30,6 +30,13 @@ jobs:
       - name: Configure Unix
         if: runner.os != 'Windows'
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DWUKONG_INTEGRATION_TESTS=ON -DPython3_EXECUTABLE="$(command -v python)"
+      - name: Prepare pinned vcpkg on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          git -C "$env:VCPKG_INSTALLATION_ROOT" fetch origin 04a9d8e5212d01ee1dd9478eadd9caade4f8b0d4
+          git -C "$env:VCPKG_INSTALLATION_ROOT" checkout --detach 04a9d8e5212d01ee1dd9478eadd9caade4f8b0d4
+          & "$env:VCPKG_INSTALLATION_ROOT/bootstrap-vcpkg.bat" -disableMetrics
       - name: Configure Windows
         if: runner.os == 'Windows'
         shell: pwsh
