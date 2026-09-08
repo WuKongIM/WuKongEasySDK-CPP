@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add the WuKongIM-maintained vcpkg Git registry for `wukong-easy-sdk` 0.1.0,
+  automatic Boost/OpenSSL/JSON dependency installation, and an independent
+  CMake consumer with Debug/Release validation on Linux, macOS and Windows.
+
 - Stop sessions without reconnecting on malformed SENDACKs, oversized messages,
   or invalid WebSocket frames; valid server send rejections remain recoverable.
 - Avoid deadlocks when listener capture cleanup removes another subscription;

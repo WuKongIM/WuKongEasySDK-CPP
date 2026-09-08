@@ -7,9 +7,76 @@ WuKongIM 的 C++17 轻量通信 SDK，参考
 （`9c03c98c725982fac224cd1d3b52456eae983975`）的接口与 JSON-RPC 协议。
 提供 WS/WSS 连接、CONNECT 鉴权、在线消息、自动 RECVACK、心跳、有界重连和自定义事件。
 
-工程版本为 **0.1.0**，通过本仓库源码和 CMake 安装导出使用；尚无预编译包或 Registry 发布。
+工程版本为 **0.1.0**，支持本仓库维护的 vcpkg Git registry，也可使用源码和 CMake 安装导出；尚无预编译 SDK 压缩包。
 
-## 编译与接入
+## 推荐：vcpkg + CMake
+
+先安装 [vcpkg](https://learn.microsoft.com/zh-cn/vcpkg/get_started/get-started)，
+将 `VCPKG_ROOT` 指向安装目录。准备 Git、CMake 3.20+ 和 C++17 编译器：
+Windows 使用 Visual Studio 2022，macOS 使用 Xcode 命令行工具，Linux 使用 GCC/Clang。
+验证使用的 vcpkg 工具版本为 `04a9d8e5212d01ee1dd9478eadd9caade4f8b0d4`。
+
+在你的应用目录创建 `vcpkg.json`：
+
+```json
+{"dependencies": ["wukong-easy-sdk"]}
+```
+
+`vcpkg-configuration.json`:
+
+```json
+{
+  "default-registry": {
+    "kind": "git",
+    "repository": "https://github.com/microsoft/vcpkg",
+    "baseline": "04a9d8e5212d01ee1dd9478eadd9caade4f8b0d4"
+  },
+  "registries": [
+    {
+      "kind": "git",
+      "repository": "https://github.com/WuKongIM/WuKongEasySDK-CPP.git",
+      "baseline": "63ec99d34c7605b64e2173d201639042e0e49de9",
+      "packages": [
+        "wukong-easy-sdk"
+      ]
+    }
+  ]
+}
+```
+
+在自己的 `main.cpp` 旁添加 `CMakeLists.txt`：
+
+```cmake
+cmake_minimum_required(VERSION 3.20)
+project(my_app LANGUAGES CXX)
+find_package(WuKongEasySDK 0.1 CONFIG REQUIRED)
+add_executable(my_app main.cpp)
+target_link_libraries(my_app PRIVATE WuKongEasySDK::WuKongEasySDK)
+```
+```sh
+# Linux / macOS
+cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release --parallel 2
+```
+
+```powershell
+# Windows / Visual Studio 2022
+cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows
+cmake --build build --config Release --parallel 2
+```
+
+vcpkg 会自动安装 SDK、Boost、OpenSSL 和 JSON，无需手动逐个安装。
+首次构建可能需要编译依赖并耗时数分钟，这不是预编译压缩包。
+SDK port 为静态库；Windows 使用 `x64-windows` 时，分发应用需要携带构建时复制到程序旁的依赖 DLL。
+
+这是 WuKongIM 在本仓库维护的公开 Git registry，不是微软默认目录中的包，
+因此必须同时提供 registry 配置和依赖声明。SDK 源码固定为
+`3e367a908f42385ab9306f9708b7456399cace7d`，与 registry baseline 分别固定。
+将两个 JSON 文件提交到应用仓库；已有 manifest 的项目应合并字段，不要覆盖原有依赖。
+
+[独立消费端示例](examples/vcpkg-consumer) · [Registry 维护说明](docs/VCPKG.md)
+
+## 备选：源码编译与接入
 
 需要 C++17、CMake 3.20+、Boost 1.74+、OpenSSL 1.1.1+、nlohmann/json 3.11+。
 产品应使用仍受维护并已修补的依赖版本。JSON 优先使用系统安装包，缺失时获取固定 3.11.3 commit；

@@ -1,0 +1,17 @@
+{
+  "default-registry": {
+    "kind": "git",
+    "repository": "https://github.com/microsoft/vcpkg",
+    "baseline": "04a9d8e5212d01ee1dd9478eadd9caade4f8b0d4"
+  },
+  "registries": [
+    {
+      "kind": "git",
+      "repository": "https://github.com/WuKongIM/WuKongEasySDK-CPP.git",
+      "baseline": "63ec99d34c7605b64e2173d201639042e0e49de9",
+      "packages": [
+        "wukong-easy-sdk"
+      ]
+    }
+  ]
+}

@@ -8,10 +8,81 @@ A C++17 communication SDK for WuKongIM, following
 CONNECT, online messaging, automatic RECVACK, heartbeat, bounded reconnection,
 and custom event notifications.
 
-The project version is **0.1.0**. Distribution is source through this repository
-and a CMake install/export; no prebuilt package or registry release is claimed.
+The project version is **0.1.0**. Use the WuKongIM-maintained vcpkg Git registry below or CMake source/install
+integration. No prebuilt SDK archive is published.
 
-## Build
+## Recommended: vcpkg + CMake
+
+Install [vcpkg](https://learn.microsoft.com/en-us/vcpkg/get_started/get-started)
+and set `VCPKG_ROOT` to its directory. Keep Git, CMake 3.20+ and a C++17 compiler
+available (Visual Studio 2022 on Windows, Xcode command-line tools on macOS,
+GCC/Clang on Linux). The tested vcpkg revision is
+`04a9d8e5212d01ee1dd9478eadd9caade4f8b0d4`.
+
+In your application directory, create `vcpkg.json`:
+
+```json
+{"dependencies": ["wukong-easy-sdk"]}
+```
+
+`vcpkg-configuration.json`:
+
+```json
+{
+  "default-registry": {
+    "kind": "git",
+    "repository": "https://github.com/microsoft/vcpkg",
+    "baseline": "04a9d8e5212d01ee1dd9478eadd9caade4f8b0d4"
+  },
+  "registries": [
+    {
+      "kind": "git",
+      "repository": "https://github.com/WuKongIM/WuKongEasySDK-CPP.git",
+      "baseline": "63ec99d34c7605b64e2173d201639042e0e49de9",
+      "packages": [
+        "wukong-easy-sdk"
+      ]
+    }
+  ]
+}
+```
+
+Add the following `CMakeLists.txt` next to your own `main.cpp`:
+
+```cmake
+cmake_minimum_required(VERSION 3.20)
+project(my_app LANGUAGES CXX)
+find_package(WuKongEasySDK 0.1 CONFIG REQUIRED)
+add_executable(my_app main.cpp)
+target_link_libraries(my_app PRIVATE WuKongEasySDK::WuKongEasySDK)
+```
+```sh
+# Linux / macOS
+cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release --parallel 2
+```
+
+```powershell
+# Windows / Visual Studio 2022
+cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows
+cmake --build build --config Release --parallel 2
+```
+
+vcpkg installs the SDK, Boost, OpenSSL and JSON automatically. The first build
+may compile dependencies and take several minutes; this is not a prebuilt
+archive. The SDK port is a static library; on Windows, distribute dependency
+DLLs copied beside the application when using `x64-windows`.
+
+This public Git registry is maintained by WuKongIM in this repository. It is
+not Microsoft's curated catalog: copy the registry configuration as well as
+the dependency manifest. SDK source is pinned to
+`3e367a908f42385ab9306f9708b7456399cace7d`, independently of the registry baseline.
+Commit both JSON files to reproduce dependency selection. Existing projects
+should merge these entries into their manifests instead of overwriting them.
+
+[Independent consumer example](examples/vcpkg-consumer) · [Registry maintenance](docs/VCPKG.md)
+
+## Alternative: build from source
 
 Requirements: C++17, CMake 3.20+, Boost 1.74+, OpenSSL 1.1.1+, and
 nlohmann/json 3.11+. Use supported, patched dependency versions in your product.
