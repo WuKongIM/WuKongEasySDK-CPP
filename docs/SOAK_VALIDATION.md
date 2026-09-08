@@ -1,8 +1,13 @@
 # Released C++ SDK resource and sustained-load acceptance
 
 This test links an independent consumer against the checksum-pinned public
-v0.1.0 archive. [Exact archive/server/JS identities](CLUSTER_VALIDATION.md) and
-all archive ledger/CMake provenance checks apply. SDK implementation sources
+v0.1.0 archive. [Archive/JS identities](CLUSTER_VALIDATION.md) and all archive
+ledger/CMake provenance checks apply. This workload pins product server
+`711daef395d8d8d14f4b02886e667f38533aa180`, which fixes starvation of later
+Slots/pages in the bounded Channel repair scanner. Earlier server `5f500377`
+failed this workload: the affected three-replica Channel retained a dead leader
+beyond the 30-second recovery bound. Slot Raft convergence alone was insufficient.
+Historical `cluster.py` receipts retain their original server revision. SDK implementation sources
 are never compiled. Receipts record the clean/dirty harness state and hashes;
 only clean runs qualify as acceptance evidence.
 
@@ -73,7 +78,8 @@ pong timeout 4 s, reconnect backoff 500–1,500 ms, 40 attempts, no jitter, and
 ## Reproduce
 
 Use the toolchain and clean server/JS preparation in
-[CLUSTER_VALIDATION.md](CLUSTER_VALIDATION.md), plus `ps` and `lsof`.
+[CLUSTER_VALIDATION.md](CLUSTER_VALIDATION.md), plus `ps` and `lsof`. For this
+workload, check out the server revision above before building it.
 On Linux, install `lsof` if absent. Python 3.12 needs no extra packages.
 
 ```sh

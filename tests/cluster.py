@@ -43,7 +43,8 @@ def prepare(args, root):
     expected = ARCHIVES[args.archive.name]
     assert digest(args.archive) == expected, "Public archive SHA256 mismatch"
     build = command("go", "version", "-m", args.server)
-    assert f"vcs.revision={SERVER_REVISION}" in build and "vcs.modified=false" in build
+    server_revision = getattr(args, "server_revision", SERVER_REVISION)
+    assert f"vcs.revision={server_revision}" in build and "vcs.modified=false" in build
     js_root = args.js_entry.parents[2]
     assert command("git", "-C", js_root, "rev-parse", "HEAD") == JS_REVISION
     assert not command("git", "-C", js_root, "status", "--porcelain"), "JS checkout must be clean"
@@ -78,7 +79,7 @@ def prepare(args, root):
         clients[mode] = build_dir / "wukong_cluster_peer"
     return clients, {
         "archive": args.archive.name, "archive_sha256": expected, "build_info": info,
-        "server_revision": SERVER_REVISION, "server_sha256": digest(args.server),
+        "server_revision": server_revision, "server_sha256": digest(args.server),
         "js_revision": JS_REVISION, "js_entry_sha256": digest(args.js_entry),
         "node": command("node", "--version"), "cmake": command("cmake", "--version").splitlines()[0],
         "harness_revision": command("git", "-C", HERE, "rev-parse", "HEAD"),

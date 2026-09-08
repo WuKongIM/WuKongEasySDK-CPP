@@ -64,7 +64,7 @@ jobs:
         run: |
           git init "$RUNNER_TEMP/cluster-server"
           git -C "$RUNNER_TEMP/cluster-server" remote add origin https://github.com/WuKongIM/WuKongIM.git
-          git -C "$RUNNER_TEMP/cluster-server" fetch --depth 1 origin 5f5003778ccee6786591ed9968a5185e9213ea55
+          git -C "$RUNNER_TEMP/cluster-server" fetch --depth 1 origin 711daef395d8d8d14f4b02886e667f38533aa180
           git -C "$RUNNER_TEMP/cluster-server" checkout --detach FETCH_HEAD
           (cd "$RUNNER_TEMP/cluster-server" && GOWORK=off go build -buildvcs=true -trimpath -o "$RUNNER_TEMP/wukongim" ./cmd/wukongim)
           git init "$RUNNER_TEMP/reference-js"

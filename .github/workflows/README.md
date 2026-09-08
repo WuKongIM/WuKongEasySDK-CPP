@@ -64,8 +64,9 @@ and evidence boundaries.
 
 ## Released SDK resource and soak acceptance
 
-`soak.yml` consumes the same checksum-pinned public archives, server and JS SDK
-as `cluster.yml`. Relevant pushes/PRs run a 120-second Release workload on
+`soak.yml` consumes the same checksum-pinned public archives and JS SDK as
+`cluster.yml`, with a separately pinned product server containing the Channel
+repair cursor fix. Relevant pushes/PRs run a 120-second Release workload on
 Linux/macOS. Manual dispatch accepts only 120 or 3,600 seconds and Debug or
 Release; a one-hour job has a 75-minute outer timeout. There is no schedule.
 It runs owned loopback processes, observes them with `ps`/`lsof`, injects two

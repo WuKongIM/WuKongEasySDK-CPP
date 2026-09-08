@@ -16,6 +16,7 @@ from collections import Counter
 import cluster as base
 
 MAX_MESSAGES = 100_000
+SERVER_REVISION = '711daef395d8d8d14f4b02886e667f38533aa180'
 RSS_GROWTH_KIB = 16 * 1024
 RSS_SLOPE_KIB_PER_MINUTE = 256
 
@@ -183,6 +184,15 @@ async def scenario(args, root, client, report):
             samples.append(await snapshot(time.monotonic() - started))
             await asyncio.sleep(args.sample_seconds)
 
+    async def channel_metadata():
+        value = await base.request(f'http://127.0.0.1:{cluster.ports[1][3]}',
+            '/manager/channel-runtime-meta?node_id=2&limit=50')
+        rows = value['items']
+        assert len(rows) == 3, 'Unexpected workload Channel inventory'
+        assert all(sorted(v['replicas']) == [1, 2, 3] and v['min_isr'] == 2 for v in rows)
+        fields = ['channel_id', 'leader', 'replicas', 'isr', 'min_isr', 'channel_epoch', 'leader_epoch']
+        return [{k: v[k] for k in fields} for v in rows]
+
     async def boundary():
         stage('slow_callback_concurrent_admission')
         blocked = alice.blocked
@@ -226,6 +236,10 @@ async def scenario(args, root, client, report):
             traffic_ready.set()
             await base.eventually(lambda: all(ledger.pairs[pair] > count
                 for pair, count in zip(directions, before)), 30)
+            rows = await channel_metadata()
+            survivor = next(v for v in rows if set(v['channel_id'].split('@')) == {bob.uid, carol.uid})
+            assert survivor['leader'] in [2, 3], 'Channel still names the dead ingress node'
+            report['channel_runtime_during_outage'] = rows
             await asyncio.sleep(1)
             await cluster.spawn(0)
             await cluster.ready(0)
@@ -269,6 +283,7 @@ async def scenario(args, root, client, report):
             await asyncio.sleep(max(0, 1 - (time.monotonic() - tick)))
         baseline = await snapshot(0)
         report['baseline'] = baseline
+        report['channel_runtime_before'] = await channel_metadata()
         started = time.monotonic()
         sample_task = asyncio.create_task(sample_loop())
         stage('sustained_traffic', duration_seconds=args.duration_seconds)
@@ -342,6 +357,7 @@ async def scenario(args, root, client, report):
         report['recovery_unknown_outcomes'] = unknown
         final = await snapshot(time.monotonic() - started)
         report['final_connected'] = final
+        report['channel_runtime_after'] = await channel_metadata()
         summary = summarize(samples)
         report['resource_summary'] = summary
         for peer in cpp:
@@ -376,6 +392,7 @@ async def scenario(args, root, client, report):
             acked=ledger.acked, queue_full=ledger.queue_full, ambiguous_delivered=ledger.ambiguous,
             recovery_route_rejections=dict(code=18, count=len(ledger.route_rejections), observed_deliveries=0),
             received=sum(p.received for p in peers), presence_cleared=True,
+            ack_fraction_excluding_queue_full=round(ledger.acked / (ledger.attempts-ledger.queue_full), 6),
             latency_ms={str(p): round(latencies[min(len(latencies)-1, math.ceil(len(latencies)*p/100)-1)], 3)
                         for p in [50, 95, 99, 100]},
             latency_definition='Control round-trip to SENDACK; burst members share batch completion time',
@@ -397,6 +414,7 @@ def main():
     parser.add_argument('--configuration', choices=['Debug', 'Release'], default='Release')
     args = parser.parse_args()
     args.configurations = [args.configuration]
+    args.server_revision = SERVER_REVISION
     args.warmup_seconds = 60 if args.duration_seconds == 3600 else 10
     args.sample_seconds = 10 if args.duration_seconds == 3600 else 5
     for name in ['archive', 'server', 'js_entry', 'report']:
@@ -406,7 +424,8 @@ def main():
         sample_seconds=args.sample_seconds, host=dict(system=platform.system(), machine=platform.machine()),
         thresholds=dict(rss_window_growth_kib=RSS_GROWTH_KIB, rss_slope_kib_per_minute=RSS_SLOPE_KIB_PER_MINUTE,
                         slope_gate_minimum_seconds=600),
-        topology=dict(nodes=3, hash_slots=256, logical_slots=12, slot_replicas=3, token_auth=True, transport='WSS'),
+        topology=dict(nodes=3, hash_slots=256, logical_slots=12, slot_replicas=3, channel_replicas=3,
+                      token_auth=True, transport='WSS'),
         workload='8 concurrent C++ SENDs plus two JS/C++ directions per paced second; surviving peers during faults')
     try:
         with tempfile.TemporaryDirectory(prefix='wk-cpp-soak-') as directory:
