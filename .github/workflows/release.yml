@@ -17,6 +17,11 @@ on:
       - 'CHANGELOG.md'
       - '.github/workflows/release.yml'
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the CMake version from main only after every archive passes acceptance
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -83,6 +88,7 @@ jobs:
             build/dist/*.zip
             build/dist/*.sha256
             build/dist/RELEASE_NOTES.md
+            build/dist/RELEASE_VERSION.txt
           if-no-files-found: error
           retention-days: 14
   accept:
@@ -160,7 +166,7 @@ jobs:
           fi
           python "$SDK_BUNDLE/tests/accept_prebuilt.py" --bundle "$SDK_BUNDLE" "${server_args[@]}"
   publish:
-    if: startsWith(github.ref, 'refs/tags/v') && github.event_name == 'push'
+    if: (startsWith(github.ref, 'refs/tags/v') && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/main')
     needs: [build, accept]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -175,9 +181,13 @@ jobs:
       - name: Check exact asset set and checksums
         shell: python
         run: |
-          import hashlib, os, pathlib
+          import hashlib, json, os, pathlib, re, zipfile
           root = pathlib.Path('dist')
-          version = os.environ['GITHUB_REF_NAME'].removeprefix('v')
+          version = (root / 'RELEASE_VERSION.txt').read_text().strip()
+          assert re.fullmatch(r'0|[1-9][0-9]*', version.split('.')[0])
+          assert re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', version)
+          if os.environ['GITHUB_EVENT_NAME'] == 'push':
+              assert os.environ['GITHUB_REF_NAME'] == 'v' + version
           names = {f'WuKongEasySDK-CPP-{version}-{p}.zip' for p in
               ('linux-x64-gcc13', 'macos-arm64-appleclang', 'windows-x64-msvc143-md')}
           assert {p.name for p in root.glob('*.zip')} == names
@@ -187,11 +197,26 @@ jobs:
               expected, filename = archive.with_suffix('.sha256').read_text().split()
               assert filename == name
               assert hashlib.sha256(archive.read_bytes()).hexdigest() == expected
+              with zipfile.ZipFile(archive) as z:
+                  info = json.loads(z.read(archive.stem + '/BUILD_INFO.json'))
+                  assert info['packaging_commit'] == os.environ['GITHUB_SHA']
+                  assert info['version'] == version
               lines.append(expected + '  ' + name)
           (root / 'SHA256SUMS').write_text('\n'.join(lines) + '\n')
+          with open(os.environ['GITHUB_ENV'], 'a') as env:
+              env.write('RELEASE_TAG=v' + version + '\n')
       - name: Publish accepted SDK version
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: ${{ github.ref_name }}
-        run: gh release create "$RELEASE_TAG" dist/*.zip dist/SHA256SUMS --verify-tag --title "WuKongEasySDK-CPP $RELEASE_TAG" --notes-file dist/RELEASE_NOTES.md
+        run: |
+          tag_args=(--verify-tag)
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            existing=$(git ls-remote --tags "https://github.com/$GITHUB_REPOSITORY.git" "refs/tags/$RELEASE_TAG")
+            if [ -n "$existing" ]; then
+              echo 'Refusing to replace an existing release tag.' >&2
+              exit 1
+            fi
+            tag_args=(--target "$GITHUB_SHA")
+          fi
+          gh release create "$RELEASE_TAG" dist/*.zip dist/SHA256SUMS "${tag_args[@]}" --title "WuKongEasySDK-CPP $RELEASE_TAG" --notes-file dist/RELEASE_NOTES.md

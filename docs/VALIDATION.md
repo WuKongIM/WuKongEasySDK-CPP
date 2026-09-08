@@ -74,3 +74,30 @@ waits on terminal shutdown before releasing captured application state.
 Real C++/C++ and C++/JS product acceptance was rerun against the same pinned
 server and JS revisions above. The GitHub Actions matrix must still be checked
 for this follow-up commit; initial hosted results do not certify a newer tree.
+
+
+## Prebuilt archive acceptance (2026-09-08)
+
+The packaging workflow exports the exact public 0.1.0 registry source, then fresh
+jobs download and relocate each archive without a C++ SDK checkout or a vcpkg
+installation. Local macOS Debug/Release consumers passed lifecycle checks, all
+26 WS/WSS scenarios, and pinned product-server messaging/reconnect/presence cleanup.
+The first preview built all three archives and passed Linux archive acceptance.
+
+The independent Windows fixture initially failed its 400 ms connection deadline:
+`localhost` resolved to `::1` first, while the fixture listened only on IPv4.
+The same exported Debug binary failed three localhost trials but passed three
+explicit-IPv4 trials (~219 ms each); refused IPv6 connections took ~2.03 seconds.
+The fixture now serves both loopback families on the same port. All 26 scenarios
+then passed on Windows with unchanged deadlines and unchanged SDK binaries.
+Evidence: [bounded Windows differential probe](https://github.com/WuKongIM/WuKongEasySDK-CPP/actions/runs/34193434834)
+and [full repaired fixture](https://github.com/WuKongIM/WuKongEasySDK-CPP/actions/runs/34193638255).
+The temporary diagnostic workflow was removed after verification. The macOS
+acceptance worker also now installs the server's pinned Go 1.25.11 toolchain;
+its clean image did not provide a `go` executable.
+
+The initial tag-triggered candidate was canceled before publication. No Release
+assets were published from it. The explicit main-branch publication path now
+creates its version tag only after all three final archive acceptance jobs pass;
+existing version tags/assets cannot be overwritten. Final release evidence is
+available from the versioned Release and its `Prebuilt SDK archives` workflow.

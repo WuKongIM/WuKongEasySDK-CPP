@@ -135,6 +135,7 @@ endforeach()
     archive = Path(shutil.make_archive(str(output / name), 'zip', root_dir=output, base_dir=name))
     digest = hashlib.sha256(archive.read_bytes()).hexdigest()
     (output / (name + '.sha256')).write_text(digest + '  ' + archive.name + '\n')
+    (output / 'RELEASE_VERSION.txt').write_text(version + '\n')
     (output / 'RELEASE_NOTES.md').write_text(notes + '\n\nSee the bundled README for compiler/ABI requirements, '
         'WSS CA configuration and Windows runtime deployment. SHA256SUMS covers all three archives.\n')
     print('Created ' + str(archive), flush=True)

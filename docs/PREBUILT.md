@@ -112,5 +112,8 @@ python tests/accept_prebuilt.py --bundle . --server /path/to/wukongim
 
 Omit `--server` to run only the lifecycle and WS/WSS gates. The archive contains
 application/test sources, not SDK implementation sources. The build workflow
-uploads previews on branch changes, and publishes a versioned GitHub Release only
-for a matching version tag after all independent acceptance jobs pass.
+uploads previews on packaging branch changes and pull requests. A matching version
+tag or an explicit manual `publish=true` run on `main` publishes only after all
+independent acceptance jobs pass. The manual path creates the version tag after
+acceptance and refuses to replace an existing tag; it is the recommended first
+release path. A manual run without that flag produces previews only.
