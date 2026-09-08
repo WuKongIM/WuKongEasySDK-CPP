@@ -16,6 +16,8 @@ There is no separate vcpkg installation or dependency download during consumptio
 
 Names start with `WuKongEasySDK-CPP-0.1.0-` and end in `.zip`.
 These are tested build targets, not universal C++ ABI compatibility promises.
+`BUILD_INFO.json` records the compiler environment. On Windows, use a v143 toolset
+at least as recent as the recorded MSVC compiler version.
 Use the source/vcpkg integration for other architectures, older operating systems,
 different standard libraries, static MSVC CRT (`/MT`), or incompatible compilers.
 Do not mix this archive with a different Boost, JSON or OpenSSL installation.

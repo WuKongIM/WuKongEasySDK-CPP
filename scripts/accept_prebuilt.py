@@ -45,11 +45,15 @@ def main():
                 run(*command, env=env)
                 run('cmake', '--build', build, '--config', config, '--parallel', '2', env=env)
                 cache = (build / 'CMakeCache.txt').read_text()
-                for dependency in ('WuKongEasySDK_DIR', 'nlohmann_json_DIR', 'Boost_DIR'):
+                for dependency in ('WuKongEasySDK_DIR', 'nlohmann_json_DIR', 'Boost_DIR', 'OPENSSL_INCLUDE_DIR'):
                     value = next(line.split('=', 1)[1] for line in cache.splitlines()
                                  if line.startswith(dependency + ':'))
                     if not Path(value).resolve().is_relative_to(bundle):
                         raise ValueError(dependency + ' escaped the prebuilt archive')
+                if sys.platform == 'win32':
+                    for dependency in ('ssl', 'crypto'):
+                        if not list((build / config).glob('*' + dependency + '*.dll')):
+                            raise ValueError('Missing application-local OpenSSL DLL: ' + dependency)
                 if project == 'app':
                     run('ctest', '--test-dir', build, '-C', config, '--output-on-failure', env=env)
                 else:

@@ -1,5 +1,6 @@
 """Build a relocatable SDK from the immutable public vcpkg registry receipt."""
 import argparse
+from datetime import date
 import hashlib
 import json
 import os
@@ -30,6 +31,7 @@ def release_notes(tag=None):
     if (sum(item[0] == version for item in headings) != 1
             or len(re.findall(r'^## .*' + re.escape(version) + r'.*$', changelog, re.M)) != 1):
         raise ValueError('Release requires exactly one dated version section')
+    date.fromisoformat(next(day for number, day in headings if number == version))
     section = re.search(r'^## \[' + re.escape(version) + r'\] - \d{4}-\d{2}-\d{2}\n(.*?)(?=^## |\Z)',
                         changelog, re.M | re.S)[1].strip()
     if not re.search(r'^- \S', section, re.M):
@@ -68,6 +70,17 @@ def main():
     status = (installed / 'vcpkg/status').read_text()
     if not re.search(r'Package: wukong-easy-sdk\nVersion: ' + re.escape(version) + r'\n', status):
         raise ValueError('Installed SDK version differs from the release')
+    (manifest / 'CMakeLists.txt').write_text('''cmake_minimum_required(VERSION 3.20)
+project(CompilerReceipt LANGUAGES CXX)
+file(WRITE "${CMAKE_BINARY_DIR}/compiler.txt"
+    "${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}\\n${CMAKE_SYSTEM_NAME} ${CMAKE_SYSTEM_VERSION} ${CMAKE_SYSTEM_PROCESSOR}\\n")
+''')
+    receipt = work / 'compiler-receipt'
+    command = ['cmake', '-S', str(manifest), '-B', str(receipt)]
+    if os.name == 'nt':
+        command += ['-A', 'x64']
+    run(*command)
+    compiler = (receipt / 'compiler.txt').read_text().strip()
     identifier, compatibility = PLATFORMS[args.triplet]
     name = f'WuKongEasySDK-CPP-{version}-{identifier}'
     output = ROOT / 'build/dist'
@@ -103,9 +116,11 @@ endforeach()
     shutil.copy2(ROOT / 'docs/PREBUILT.md', bundle / 'README.md')
     # Preserve export-tool licensing as well as every port's copyright/SPDX files.
     shutil.copy2(vcpkg / 'LICENSE.txt', bundle / 'VCPKG-LICENSE.txt')
+    shutil.copy2(vcpkg / 'NOTICE.txt', bundle / 'VCPKG-NOTICE.txt')
     port = (ROOT / 'ports/wukong-easy-sdk/portfile.cmake').read_text()
     metadata = {
         'version': version, 'triplet': args.triplet, 'compatibility': compatibility,
+        'compiler_environment': compiler,
         'packaging_commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
         'sdk_source_commit': re.search(r'REF ([0-9a-f]{40})', port)[1],
         'sdk_source_sha512': re.search(r'SHA512 ([0-9a-f]{128})', port)[1],
